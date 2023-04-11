@@ -14,9 +14,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -52,6 +55,15 @@ class BeerControllerTest {
     @Captor
     ArgumentCaptor<BeerDTO> beerArgumentCaptor;
 
+    public static final SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor jwtRequestPostProcessor =
+            jwt().jwt(jwt -> {
+                jwt.claims(claims -> {
+                    claims.put("scope", "message-read");
+                    claims.put("scope", "message-write");
+                }).subject("message-client")
+                        .notBefore(Instant.now().minusSeconds(5L));
+            });
+
     @BeforeEach
     void setUp() {
         beerServiceImpl = new BeerServiceImpl();
@@ -68,7 +80,7 @@ class BeerControllerTest {
         beerMap.put("beerName", "New Name");
 
         mockMvc.perform(patch(BeerController.BEER_PATH_ID, beer.getId())
-                        .with(httpBasic(USERNAME, PASSWORD))
+                        .with(jwtRequestPostProcessor)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(beerMap)))
